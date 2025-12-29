@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "webapp",
+  "name": "moguedu",
   "compatibility_date": "2025-12-29",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
@@ -24,8 +24,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "webapp-production",
-      "database_id": "local-only-for-development"
+      "database_name": "moguedu-production",
+      "database_id": "794631ca-ec62-42b9-adbe-50454a353ce6"
     }
   ],
   // "ai": {
