@@ -6,6 +6,29 @@ MOGU Education is a Canadian registered accreditation website specialized in acc
 
 **Live Website**: https://3000-ife4zimfunsdxfan09n1m-dfc00ec5.sandbox.novita.ai
 
+## 🔐 Admin Panel Access
+
+**IMPORTANT:** Complete administrative dashboard for managing all data.
+
+### Login Credentials
+- **URL:** https://3000-ife4zimfunsdxfan09n1m-dfc00ec5.sandbox.novita.ai/admin/login
+- **Username:** `admin`
+- **Password:** `admin123`
+
+**⚠️ Security:** Change default password immediately in production!
+
+### Admin Features
+- 📊 Dashboard with real-time statistics
+- 📜 Certificate Management (CRUD operations, search)
+- 🏢 Training Center Management
+- 📚 Training Program Management  
+- 🔐 Secure session-based authentication
+- 📱 Fully responsive design
+
+📘 **Detailed Guide:** See [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) for complete instructions
+
+---
+
 ## Key Features
 
 ### ✅ Currently Implemented
@@ -41,17 +64,43 @@ MOGU Education is a Canadian registered accreditation website specialized in acc
      - Country of accredited institution
 
 4. **Backend API Endpoints**
+   
+   **Public APIs:**
    - `POST /api/verify` - Certificate verification
    - `GET /api/certificates/search` - Search certificates
    - `GET /api/centers` - List accredited centers
    - `GET /api/standards` - Get accreditation standards
    - `GET /api/stats` - Website statistics
+   
+   **Admin APIs:**
+   - `POST /api/admin/login` - Admin authentication
+   - `POST /api/admin/logout` - End admin session
+   - `GET /api/admin/certificates` - List all certificates
+   - `POST /api/admin/certificates` - Add new certificate
+   - `PUT /api/admin/certificates/:id` - Update certificate
+   - `DELETE /api/admin/certificates/:id` - Delete certificate
+   - `GET /api/admin/centers` - List all centers
+   - `POST /api/admin/centers` - Add new center
+   - `PUT /api/admin/centers/:id` - Update center
+   - `DELETE /api/admin/centers/:id` - Delete center
+   - `GET /api/admin/programs` - List all programs
+   - `POST /api/admin/programs` - Add new program
+   - `PUT /api/admin/programs/:id` - Update program
+   - `DELETE /api/admin/programs/:id` - Delete program
 
 5. **Database Architecture**
-   - Training Centers table with accreditation status
-   - Training Programs with program codes
-   - Certificates with verification data
-   - Accreditation Standards (MOGU Method components)
+   - **Training Centers** - Accredited institution records
+   - **Training Programs** - Approved program catalog
+   - **Certificates** - Issued certificate registry
+   - **Accreditation Standards** - MOGU Method components
+   - **Admin Users** - Administrative access control
+   - **Admin Sessions** - Secure session management
+   
+   **Database Details:**
+   - 6 tables with full relational integrity
+   - Foreign key constraints for data consistency
+   - Indexed for optimal query performance
+   - Migration-based schema management
 
 ## Technology Stack
 
@@ -67,18 +116,21 @@ MOGU Education is a Canadian registered accreditation website specialized in acc
 ```
 webapp/
 ├── src/
-│   ├── index.tsx           # Main application with all routes
-│   └── renderer.tsx        # React renderer
+│   ├── index.tsx              # Main application (3189 lines)
+│   └── renderer.tsx           # React renderer
 ├── migrations/
-│   └── 0001_initial_schema.sql  # Database schema
+│   ├── 0001_initial_schema.sql    # Core database schema
+│   └── 0002_admin_system.sql      # Admin tables
 ├── public/
-│   ├── mogu-logo.png       # MOGU logo
-│   └── static/             # Static assets
-├── seed.sql                # Sample data for development
-├── ecosystem.config.cjs    # PM2 configuration
-├── wrangler.jsonc          # Cloudflare configuration
-├── package.json            # Dependencies and scripts
-└── README.md              # This file
+│   ├── mogu-logo.png          # MOGU logo (610x409px)
+│   └── static/                # Static assets
+├── seed.sql                   # Sample data + default admin
+├── ecosystem.config.cjs       # PM2 configuration
+├── wrangler.jsonc             # Cloudflare configuration
+├── package.json               # Dependencies and scripts
+├── README.md                  # Project documentation
+├── ADMIN_GUIDE.md             # Complete admin manual
+└── DEPLOYMENT.md              # Deployment instructions
 ```
 
 ## Database Schema
