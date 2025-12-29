@@ -201,12 +201,25 @@ app.get('/api/stats', async (c) => {
       `SELECT COUNT(*) as count FROM certificates WHERE status = 'valid'`
     ).first()
 
+    // Get unread messages count
+    let unreadMessages = 0;
+    try {
+      const messagesCount = await DB.prepare(
+        `SELECT COUNT(*) as count FROM contact_submissions WHERE is_read = 0`
+      ).first();
+      unreadMessages = messagesCount?.count || 0;
+    } catch (e) {
+      // Table might not exist yet
+      console.log('contact_submissions table not found');
+    }
+
     return c.json({
       success: true,
       stats: {
         accreditedCenters: centersCount?.count || 0,
         accreditedPrograms: programsCount?.count || 0,
-        issuedCertificates: certificatesCount?.count || 0
+        issuedCertificates: certificatesCount?.count || 0,
+        unreadMessages: unreadMessages
       }
     })
   } catch (error) {
@@ -361,7 +374,7 @@ app.post('/api/admin/logout', async (c) => {
   return c.json({ success: true });
 });
 
-// Contact Form Email API
+// Contact Form API - Save to Database Only
 app.post('/api/contact', async (c) => {
   try {
     const { name, email, organization, inquiryType, message } = await c.req.json();
@@ -369,6 +382,12 @@ app.post('/api/contact', async (c) => {
     // Validate required fields
     if (!name || !email || !inquiryType || !message) {
       return c.json({ success: false, message: 'Please fill all required fields' }, 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ success: false, message: 'Please enter a valid email address' }, 400);
     }
 
     // Save to database
@@ -383,6 +402,7 @@ app.post('/api/contact', async (c) => {
         organization TEXT,
         inquiry_type TEXT NOT NULL,
         message TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
@@ -393,81 +413,7 @@ app.post('/api/contact', async (c) => {
       VALUES (?, ?, ?, ?, ?)
     `).bind(name, email, organization || '', inquiryType, message).run();
 
-    // Prepare email content
-    const emailContent = `
-New Contact Form Submission from MOGU Website
-
-Name: ${name}
-Email: ${email}
-Organization: ${organization || 'N/A'}
-Inquiry Type: ${inquiryType}
-
-Message:
-${message}
-
----
-Sent from: moguedu.ca/contact
-Time: ${new Date().toISOString()}
-Submission ID: ${result.meta.last_row_id}
-    `.trim();
-
-    // Send email using MailChannels (Cloudflare Email Workers)
-    const emailResponse = await fetch('https://api.mailchannels.net/tx/v1/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: 'info@moguedu.ca', name: 'MOGU Education' }],
-          reply_to: { email: email, name: name }
-        }],
-        from: {
-          email: 'noreply@moguedu.ca',
-          name: 'MOGU Contact Form'
-        },
-        subject: `New Inquiry: ${inquiryType} from ${name}`,
-        content: [{
-          type: 'text/plain',
-          value: emailContent
-        }, {
-          type: 'text/html',
-          value: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #991b1b;">New Contact Form Submission</h2>
-              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p><strong>Name:</strong> ${name}</p>
-                <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
-                <p><strong>Organization:</strong> ${organization || 'N/A'}</p>
-                <p><strong>Inquiry Type:</strong> ${inquiryType}</p>
-              </div>
-              <div style="margin: 20px 0;">
-                <h3>Message:</h3>
-                <p style="white-space: pre-wrap;">${message}</p>
-              </div>
-              <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 12px;">
-                Sent from: <a href="https://moguedu.ca/contact">moguedu.ca/contact</a><br>
-                Time: ${new Date().toLocaleString()}<br>
-                Submission ID: ${result.meta.last_row_id}
-              </p>
-            </div>
-          `
-        }]
-      })
-    });
-
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error('MailChannels API error:', errorText);
-      // Still return success because we saved to DB
-      return c.json({ 
-        success: true, 
-        message: 'Thank you for your message! We have received your inquiry and will contact you at ' + email + ' within 24-48 hours.',
-        note: 'Your message has been saved. If you don\'t hear from us, please email info@moguedu.ca directly.'
-      });
-    }
-
+    // Return success
     return c.json({ 
       success: true, 
       message: 'Thank you for your message! We will respond within 24-48 business hours.'
@@ -873,17 +819,18 @@ app.get('/admin/dashboard', async (c) => {
                     <i class="fas fa-bolt mr-2"></i>Quick Actions
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <a href="/admin/messages" class="bg-red-50 border-2 border-red-200 p-4 rounded-lg hover:bg-red-100 transition text-center relative">
+                        <i class="fas fa-envelope text-3xl text-red-600 mb-2"></i>
+                        <p class="font-semibold text-red-800">View Messages</p>
+                        <span id="unread-badge" class="hidden absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full"></span>
+                    </a>
                     <a href="/admin/certificates?action=add" class="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg hover:bg-blue-100 transition text-center">
                         <i class="fas fa-plus-circle text-3xl text-blue-600 mb-2"></i>
-                        <p class="font-semibold text-blue-800">Add New Certificate</p>
+                        <p class="font-semibold text-blue-800">Add Certificate</p>
                     </a>
                     <a href="/admin/centers?action=add" class="bg-green-50 border-2 border-green-200 p-4 rounded-lg hover:bg-green-100 transition text-center">
                         <i class="fas fa-building text-3xl text-green-600 mb-2"></i>
-                        <p class="font-semibold text-green-800">Add Training Center</p>
-                    </a>
-                    <a href="/admin/programs?action=add" class="bg-purple-50 border-2 border-purple-200 p-4 rounded-lg hover:bg-purple-100 transition text-center">
-                        <i class="fas fa-book text-3xl text-purple-600 mb-2"></i>
-                        <p class="font-semibold text-purple-800">Add Training Program</p>
+                        <p class="font-semibold text-green-800">Add Center</p>
                     </a>
                     <a href="/admin/change-password" class="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg hover:bg-orange-100 transition text-center">
                         <i class="fas fa-key text-3xl text-orange-600 mb-2"></i>
@@ -904,6 +851,13 @@ app.get('/admin/dashboard', async (c) => {
                 document.getElementById('total-centers').textContent = stats.accreditedCenters;
                 document.getElementById('total-programs').textContent = stats.accreditedPrograms;
                 document.getElementById('valid-certificates').textContent = stats.issuedCertificates;
+                
+                // Show unread messages badge
+                if (stats.unreadMessages > 0) {
+                  const badge = document.getElementById('unread-badge');
+                  badge.textContent = stats.unreadMessages;
+                  badge.classList.remove('hidden');
+                }
               }
             })
             .catch(error => console.error('Error loading stats:', error));
