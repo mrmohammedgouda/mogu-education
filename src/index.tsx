@@ -5,6 +5,7 @@ import { getCookie, setCookie } from 'hono/cookie'
 
 type Bindings = {
   DB: D1Database
+  RESEND_API_KEY?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -358,6 +359,105 @@ app.post('/api/admin/logout', async (c) => {
   }
 
   return c.json({ success: true });
+});
+
+// Contact Form Email API
+app.post('/api/contact', async (c) => {
+  try {
+    const { name, email, organization, inquiryType, message } = await c.req.json();
+
+    // Validate required fields
+    if (!name || !email || !inquiryType || !message) {
+      return c.json({ success: false, message: 'Please fill all required fields' }, 400);
+    }
+
+    // Prepare email content
+    const emailContent = `
+New Contact Form Submission from MOGU Website
+
+Name: ${name}
+Email: ${email}
+Organization: ${organization || 'N/A'}
+Inquiry Type: ${inquiryType}
+
+Message:
+${message}
+
+---
+Sent from: moguedu.ca/contact
+Time: ${new Date().toISOString()}
+    `.trim();
+
+    // Check if RESEND_API_KEY is configured
+    const RESEND_API_KEY = c.env.RESEND_API_KEY;
+    
+    if (!RESEND_API_KEY) {
+      // If no API key, just log and return success (temporary)
+      console.log('Contact form submission (no email service configured):', {
+        name, email, inquiryType
+      });
+      
+      return c.json({ 
+        success: true, 
+        message: 'Thank you for your message. We will contact you at ' + email + ' within 24-48 hours.',
+        note: 'Email service not configured yet. Please email info@moguedu.ca directly.'
+      });
+    }
+
+    // Send email using Resend API
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'MOGU Contact Form <contact@moguedu.ca>',
+        to: 'info@moguedu.ca',
+        reply_to: email,
+        subject: `New Inquiry: ${inquiryType} from ${name}`,
+        text: emailContent,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #991b1b;">New Contact Form Submission</h2>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Name:</strong> ${name}</p>
+              <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+              <p><strong>Organization:</strong> ${organization || 'N/A'}</p>
+              <p><strong>Inquiry Type:</strong> ${inquiryType}</p>
+            </div>
+            <div style="margin: 20px 0;">
+              <h3>Message:</h3>
+              <p style="white-space: pre-wrap;">${message}</p>
+            </div>
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px;">
+              Sent from: <a href="https://moguedu.ca/contact">moguedu.ca/contact</a><br>
+              Time: ${new Date().toLocaleString()}
+            </p>
+          </div>
+        `
+      })
+    });
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json();
+      console.error('Resend API error:', errorData);
+      throw new Error('Failed to send email');
+    }
+
+    return c.json({ 
+      success: true, 
+      message: 'Thank you for your message! We will respond within 24-48 business hours.'
+    });
+
+  } catch (error) {
+    console.error('Contact form error:', error);
+    return c.json({ 
+      success: false, 
+      message: 'Sorry, there was an error sending your message. Please email us directly at info@moguedu.ca'
+    }, 500);
+  }
 });
 
 // Admin Change Password API
@@ -3438,25 +3538,25 @@ app.get('/contact', (c) => {
                     </div>
 
                     <!-- Contact Form -->
-                    <p class="text-center text-gray-600 mb-4">Or fill out the form below (Note: This is a demo form)</p>
+                    <p class="text-center text-gray-600 mb-4">Or fill out the form below to send us a message</p>
                     <form id="contact-form" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-gray-700 font-semibold mb-2">Name *</label>
-                                <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
+                                <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
                             </div>
                             <div>
                                 <label class="block text-gray-700 font-semibold mb-2">Email *</label>
-                                <input type="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
+                                <input type="email" name="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
                             </div>
                         </div>
                         <div>
                             <label class="block text-gray-700 font-semibold mb-2">Organization</label>
-                            <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
+                            <input type="text" name="organization" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
                         </div>
                         <div>
                             <label class="block text-gray-700 font-semibold mb-2">Inquiry Type *</label>
-                            <select required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
+                            <select name="inquiryType" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
                                 <option value="">Select an option</option>
                                 <option>Training Center Accreditation</option>
                                 <option>Program Accreditation</option>
@@ -3467,7 +3567,7 @@ app.get('/contact', (c) => {
                         </div>
                         <div>
                             <label class="block text-gray-700 font-semibold mb-2">Message *</label>
-                            <textarea required rows="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800"></textarea>
+                            <textarea name="message" required rows="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800"></textarea>
                         </div>
                         <div>
                             <button type="submit" class="w-full bg-red-800 text-white py-4 rounded-lg font-semibold hover:bg-red-900 transition">
@@ -3500,14 +3600,56 @@ app.get('/contact', (c) => {
             </div>
         </footer>
 
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
-          document.getElementById('contact-form').addEventListener('submit', (e) => {
+          document.getElementById('contact-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const form = e.target;
+            const submitButton = form.querySelector('button[type="submit"]');
             const messageDiv = document.getElementById('form-message');
-            messageDiv.className = 'mt-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg';
-            messageDiv.innerHTML = '<p class="text-green-800"><i class="fas fa-check-circle mr-2"></i>Thank you for your message. We will respond within 24-48 business hours.</p>';
-            messageDiv.classList.remove('hidden');
-            e.target.reset();
+            
+            // Get form data using FormData
+            const formData = new FormData(form);
+            const data = {
+              name: formData.get('name'),
+              email: formData.get('email'),
+              organization: formData.get('organization'),
+              inquiryType: formData.get('inquiryType'),
+              message: formData.get('message')
+            };
+            
+            // Disable button
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+            messageDiv.classList.add('hidden');
+            
+            try {
+              const response = await axios.post('/api/contact', data);
+              
+              if (response.data.success) {
+                messageDiv.className = 'mt-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg';
+                messageDiv.innerHTML = `
+                  <p class="text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>${response.data.message}
+                  </p>
+                  ${response.data.note ? `<p class="text-gray-600 text-sm mt-2"><i class="fas fa-info-circle mr-1"></i>${response.data.note}</p>` : ''}
+                `;
+                form.reset();
+              }
+            } catch (error) {
+              messageDiv.className = 'mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg';
+              messageDiv.innerHTML = `
+                <p class="text-red-800">
+                  <i class="fas fa-exclamation-circle mr-2"></i>
+                  ${error.response?.data?.message || 'Error sending message. Please try again or email us directly at info@moguedu.ca'}
+                </p>
+              `;
+            } finally {
+              submitButton.disabled = false;
+              submitButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Message';
+              messageDiv.classList.remove('hidden');
+            }
           });
         </script>
     </body>
