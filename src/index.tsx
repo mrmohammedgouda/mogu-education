@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
+import { getCookie, setCookie } from 'hono/cookie'
 
 type Bindings = {
   DB: D1Database
@@ -240,7 +241,7 @@ function generateSessionToken(): string {
 
 // Admin Authentication Middleware
 async function adminAuth(c: any, next: any) {
-  const sessionToken = c.req.cookie('admin_session');
+  const sessionToken = getCookie(c, 'admin_session');
   
   if (!sessionToken) {
     return c.redirect('/admin/login');
@@ -290,6 +291,14 @@ app.post('/api/admin/login', async (c) => {
       UPDATE admin_users SET last_login = datetime('now') WHERE id = ?
     `).bind(user.id).run();
 
+    // Set cookie
+    setCookie(c, 'admin_session', sessionToken, {
+      path: '/',
+      httpOnly: true,
+      secure: false, // Set to true in production with HTTPS
+      maxAge: 24 * 60 * 60 // 24 hours
+    });
+
     return c.json({ 
       success: true, 
       sessionToken,
@@ -309,7 +318,7 @@ app.post('/api/admin/login', async (c) => {
 // Admin Logout API
 app.post('/api/admin/logout', async (c) => {
   const { DB } = c.env;
-  const sessionToken = c.req.cookie('admin_session');
+  const sessionToken = getCookie(c, 'admin_session');
 
   if (sessionToken) {
     await DB.prepare(`DELETE FROM admin_sessions WHERE session_token = ?`)
@@ -322,7 +331,7 @@ app.post('/api/admin/logout', async (c) => {
 // Admin Change Password API
 app.post('/api/admin/change-password', async (c) => {
   const { DB } = c.env;
-  const sessionToken = c.req.cookie('admin_session');
+  const sessionToken = getCookie(c, 'admin_session');
   
   if (!sessionToken) {
     return c.json({ success: false, message: 'Unauthorized' }, 401);
@@ -357,12 +366,15 @@ app.post('/api/admin/change-password', async (c) => {
       return c.json({ success: false, message: 'Current password is incorrect' }, 401);
     }
 
-    // Update password (direct hash - simple method)
+    // Hash new password
+    const newPasswordHash = hashPassword(newPassword);
+
+    // Update password
     await DB.prepare(`
       UPDATE admin_users 
       SET password_hash = ? 
       WHERE id = ?
-    `).bind(newPassword, session.admin_id).run();
+    `).bind(newPasswordHash, session.admin_id).run();
 
     return c.json({ success: true, message: 'Password changed successfully' });
 
