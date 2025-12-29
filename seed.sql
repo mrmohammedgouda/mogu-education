@@ -1,3 +1,10 @@
+-- Insert Default Admin User
+-- Username: admin
+-- Password: admin123
+-- Password hash is: btoa('admin123' + 'MOGU_SALT_2024') = YWRtaW4xMjNNT0dVX1NBTFRfMjAyNA==
+INSERT INTO admin_users (username, password_hash, full_name, email, role, is_active) 
+VALUES ('admin', 'YWRtaW4xMjNNT0dVX1NBTFRfMjAyNA==', 'System Administrator', 'admin@moguedu.ca', 'super_admin', 1);
+
 -- Insert sample training centers
 INSERT INTO training_centers (name, country, accreditation_status, accreditation_date, contact_email, website) VALUES
 ('Excellence Training Institute', 'Canada', 'active', '2024-01-15', 'info@excellence.ca', 'https://excellence.ca'),

@@ -1,0 +1,228 @@
+// Admin Authentication & Session Management Helper Functions
+
+// Simple password hashing (in production, use bcrypt)
+function hashPassword(password: string): string {
+  // For demo: simple hash. In production, use proper bcrypt
+  return btoa(password + 'MOGU_SALT_2024');
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash;
+}
+
+function generateSessionToken(): string {
+  return btoa(Math.random().toString(36) + Date.now().toString(36));
+}
+
+// Admin Authentication Middleware
+async function adminAuth(c: any, next: any) {
+  const sessionToken = c.req.cookie('admin_session');
+  
+  if (!sessionToken) {
+    return c.redirect('/admin/login');
+  }
+
+  const { DB } = c.env;
+  const session = await DB.prepare(`
+    SELECT s.*, u.username, u.full_name, u.role 
+    FROM admin_sessions s
+    JOIN admin_users u ON s.admin_id = u.id
+    WHERE s.session_token = ? AND s.expires_at > datetime('now') AND u.is_active = 1
+  `).bind(sessionToken).first();
+
+  if (!session) {
+    return c.redirect('/admin/login');
+  }
+
+  c.set('admin', session);
+  await next();
+}
+
+// Admin Login API
+app.post('/api/admin/login', async (c) => {
+  const { DB } = c.env;
+  const { username, password } = await c.req.json();
+
+  try {
+    const user = await DB.prepare(`
+      SELECT * FROM admin_users WHERE username = ? AND is_active = 1
+    `).bind(username).first();
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return c.json({ success: false, message: 'Invalid credentials' }, 401);
+    }
+
+    // Create session
+    const sessionToken = generateSessionToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+    await DB.prepare(`
+      INSERT INTO admin_sessions (admin_id, session_token, expires_at)
+      VALUES (?, ?, ?)
+    `).bind(user.id, sessionToken, expiresAt).run();
+
+    // Update last login
+    await DB.prepare(`
+      UPDATE admin_users SET last_login = datetime('now') WHERE id = ?
+    `).bind(user.id).run();
+
+    return c.json({ 
+      success: true, 
+      sessionToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ success: false, message: 'Login failed' }, 500);
+  }
+});
+
+// Admin Logout API
+app.post('/api/admin/logout', async (c) => {
+  const { DB } = c.env;
+  const sessionToken = c.req.cookie('admin_session');
+
+  if (sessionToken) {
+    await DB.prepare(`DELETE FROM admin_sessions WHERE session_token = ?`)
+      .bind(sessionToken).run();
+  }
+
+  return c.json({ success: true });
+});
+
+// Admin API - Get all certificates
+app.get('/api/admin/certificates', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`
+      SELECT 
+        c.id,
+        c.certificate_number,
+        c.holder_name,
+        c.issue_date,
+        c.expiry_date,
+        c.status,
+        p.program_name,
+        p.program_code,
+        tc.name as training_center
+      FROM certificates c
+      JOIN training_programs p ON c.program_id = p.id
+      JOIN training_centers tc ON c.center_id = tc.id
+      ORDER BY c.created_at DESC
+    `);
+
+    const { results } = await stmt.all();
+    return c.json({ success: true, certificates: results || [] });
+  } catch (error) {
+    console.error('Error fetching certificates:', error);
+    return c.json({ success: false, message: 'Error fetching certificates' }, 500);
+  }
+});
+
+// Admin API - Add certificate
+app.post('/api/admin/certificates', async (c) => {
+  const { DB } = c.env;
+  const data = await c.req.json();
+
+  try {
+    const result = await DB.prepare(`
+      INSERT INTO certificates (certificate_number, holder_name, program_id, center_id, issue_date, expiry_date, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.certificate_number,
+      data.holder_name,
+      data.program_id,
+      data.center_id,
+      data.issue_date,
+      data.expiry_date || null,
+      data.status || 'valid'
+    ).run();
+
+    return c.json({ success: true, id: result.meta.last_row_id });
+  } catch (error) {
+    console.error('Error adding certificate:', error);
+    return c.json({ success: false, message: 'Error adding certificate' }, 500);
+  }
+});
+
+// Admin API - Update certificate
+app.put('/api/admin/certificates/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const data = await c.req.json();
+
+  try {
+    await DB.prepare(`
+      UPDATE certificates 
+      SET certificate_number = ?, holder_name = ?, program_id = ?, center_id = ?, 
+          issue_date = ?, expiry_date = ?, status = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(
+      data.certificate_number,
+      data.holder_name,
+      data.program_id,
+      data.center_id,
+      data.issue_date,
+      data.expiry_date || null,
+      data.status,
+      id
+    ).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error updating certificate:', error);
+    return c.json({ success: false, message: 'Error updating certificate' }, 500);
+  }
+});
+
+// Admin API - Delete certificate
+app.delete('/api/admin/certificates/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  try {
+    await DB.prepare(`DELETE FROM certificates WHERE id = ?`).bind(id).run();
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting certificate:', error);
+    return c.json({ success: false, message: 'Error deleting certificate' }, 500);
+  }
+});
+
+// Admin API - Get all programs
+app.get('/api/admin/programs', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`
+      SELECT p.*, tc.name as center_name
+      FROM training_programs p
+      JOIN training_centers tc ON p.center_id = tc.id
+      ORDER BY p.program_name
+    `);
+
+    const { results } = await stmt.all();
+    return c.json({ success: true, programs: results || [] });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error fetching programs' }, 500);
+  }
+});
+
+// Admin API - Get all centers (simple list for dropdowns)
+app.get('/api/admin/centers/list', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`SELECT id, name FROM training_centers WHERE accreditation_status = 'active' ORDER BY name`);
+    const { results } = await stmt.all();
+    return c.json({ success: true, centers: results || [] });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error fetching centers' }, 500);
+  }
+});

@@ -1,0 +1,473 @@
+// Admin Authentication & Session Management Helper Functions
+
+// Simple password hashing (in production, use bcrypt)
+function hashPassword(password: string): string {
+  // For demo: simple hash. In production, use proper bcrypt
+  return btoa(password + 'MOGU_SALT_2024');
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash;
+}
+
+function generateSessionToken(): string {
+  return btoa(Math.random().toString(36) + Date.now().toString(36));
+}
+
+// Admin Authentication Middleware
+async function adminAuth(c: any, next: any) {
+  const sessionToken = c.req.cookie('admin_session');
+  
+  if (!sessionToken) {
+    return c.redirect('/admin/login');
+  }
+
+  const { DB } = c.env;
+  const session = await DB.prepare(`
+    SELECT s.*, u.username, u.full_name, u.role 
+    FROM admin_sessions s
+    JOIN admin_users u ON s.admin_id = u.id
+    WHERE s.session_token = ? AND s.expires_at > datetime('now') AND u.is_active = 1
+  `).bind(sessionToken).first();
+
+  if (!session) {
+    return c.redirect('/admin/login');
+  }
+
+  c.set('admin', session);
+  await next();
+}
+
+// Admin Login API
+app.post('/api/admin/login', async (c) => {
+  const { DB } = c.env;
+  const { username, password } = await c.req.json();
+
+  try {
+    const user = await DB.prepare(`
+      SELECT * FROM admin_users WHERE username = ? AND is_active = 1
+    `).bind(username).first();
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return c.json({ success: false, message: 'Invalid credentials' }, 401);
+    }
+
+    // Create session
+    const sessionToken = generateSessionToken();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+
+    await DB.prepare(`
+      INSERT INTO admin_sessions (admin_id, session_token, expires_at)
+      VALUES (?, ?, ?)
+    `).bind(user.id, sessionToken, expiresAt).run();
+
+    // Update last login
+    await DB.prepare(`
+      UPDATE admin_users SET last_login = datetime('now') WHERE id = ?
+    `).bind(user.id).run();
+
+    return c.json({ 
+      success: true, 
+      sessionToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ success: false, message: 'Login failed' }, 500);
+  }
+});
+
+// Admin Logout API
+app.post('/api/admin/logout', async (c) => {
+  const { DB } = c.env;
+  const sessionToken = c.req.cookie('admin_session');
+
+  if (sessionToken) {
+    await DB.prepare(`DELETE FROM admin_sessions WHERE session_token = ?`)
+      .bind(sessionToken).run();
+  }
+
+  return c.json({ success: true });
+});
+
+// Admin API - Get all certificates
+app.get('/api/admin/certificates', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`
+      SELECT 
+        c.id,
+        c.certificate_number,
+        c.holder_name,
+        c.issue_date,
+        c.expiry_date,
+        c.status,
+        p.program_name,
+        p.program_code,
+        tc.name as training_center
+      FROM certificates c
+      JOIN training_programs p ON c.program_id = p.id
+      JOIN training_centers tc ON c.center_id = tc.id
+      ORDER BY c.created_at DESC
+    `);
+
+    const { results } = await stmt.all();
+    return c.json({ success: true, certificates: results || [] });
+  } catch (error) {
+    console.error('Error fetching certificates:', error);
+    return c.json({ success: false, message: 'Error fetching certificates' }, 500);
+  }
+});
+
+// Admin API - Add certificate
+app.post('/api/admin/certificates', async (c) => {
+  const { DB } = c.env;
+  const data = await c.req.json();
+
+  try {
+    const result = await DB.prepare(`
+      INSERT INTO certificates (certificate_number, holder_name, program_id, center_id, issue_date, expiry_date, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      data.certificate_number,
+      data.holder_name,
+      data.program_id,
+      data.center_id,
+      data.issue_date,
+      data.expiry_date || null,
+      data.status || 'valid'
+    ).run();
+
+    return c.json({ success: true, id: result.meta.last_row_id });
+  } catch (error) {
+    console.error('Error adding certificate:', error);
+    return c.json({ success: false, message: 'Error adding certificate' }, 500);
+  }
+});
+
+// Admin API - Update certificate
+app.put('/api/admin/certificates/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const data = await c.req.json();
+
+  try {
+    await DB.prepare(`
+      UPDATE certificates 
+      SET certificate_number = ?, holder_name = ?, program_id = ?, center_id = ?, 
+          issue_date = ?, expiry_date = ?, status = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(
+      data.certificate_number,
+      data.holder_name,
+      data.program_id,
+      data.center_id,
+      data.issue_date,
+      data.expiry_date || null,
+      data.status,
+      id
+    ).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error updating certificate:', error);
+    return c.json({ success: false, message: 'Error updating certificate' }, 500);
+  }
+});
+
+// Admin API - Delete certificate
+app.delete('/api/admin/certificates/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  try {
+    await DB.prepare(`DELETE FROM certificates WHERE id = ?`).bind(id).run();
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting certificate:', error);
+    return c.json({ success: false, message: 'Error deleting certificate' }, 500);
+  }
+});
+
+// Admin API - Get all programs
+app.get('/api/admin/programs', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`
+      SELECT p.*, tc.name as center_name
+      FROM training_programs p
+      JOIN training_centers tc ON p.center_id = tc.id
+      ORDER BY p.program_name
+    `);
+
+    const { results } = await stmt.all();
+    return c.json({ success: true, programs: results || [] });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error fetching programs' }, 500);
+  }
+});
+
+// Admin API - Get all centers (simple list for dropdowns)
+app.get('/api/admin/centers/list', async (c) => {
+  const { DB } = c.env;
+
+  try {
+    const stmt = DB.prepare(`SELECT id, name FROM training_centers WHERE accreditation_status = 'active' ORDER BY name`);
+    const { results } = await stmt.all();
+    return c.json({ success: true, centers: results || [] });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error fetching centers' }, 500);
+  }
+});
+// Admin Login Page
+app.get('/admin/login', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Login - MOGU Edu</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          .gradient-bg { background: linear-gradient(135deg, #8B1D1D 0%, #1F1F1F 100%); }
+        </style>
+    </head>
+    <body class="gradient-bg min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <img src="/mogu-logo.png" alt="MOGU Edu" class="h-16 mx-auto mb-4">
+                <h1 class="text-2xl font-bold text-gray-800">Admin Login</h1>
+                <p class="text-gray-600 mt-2">MOGU Education Administration Panel</p>
+            </div>
+
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-user mr-2"></i>Username
+                    </label>
+                    <input 
+                        type="text" 
+                        id="username"
+                        required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800"
+                        placeholder="Enter your username">
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2"></i>Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password"
+                        required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800"
+                        placeholder="Enter your password">
+                </div>
+
+                <div id="error-message" class="hidden p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded"></div>
+
+                <button 
+                    type="submit"
+                    class="w-full bg-red-800 text-white py-3 rounded-lg font-semibold hover:bg-red-900 transition">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <a href="/" class="text-red-800 hover:underline text-sm">
+                    <i class="fas fa-arrow-left mr-1"></i>Back to Website
+                </a>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+          document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error-message');
+
+            errorDiv.classList.add('hidden');
+
+            try {
+              const response = await axios.post('/api/admin/login', { username, password });
+              
+              if (response.data.success) {
+                document.cookie = 'admin_session=' + response.data.sessionToken + '; path=/; max-age=86400';
+                window.location.href = '/admin/dashboard';
+              } else {
+                errorDiv.textContent = response.data.message || 'Invalid credentials';
+                errorDiv.classList.remove('hidden');
+              }
+            } catch (error) {
+              errorDiv.textContent = 'Login failed. Please check your credentials.';
+              errorDiv.classList.remove('hidden');
+            }
+          });
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// Admin Dashboard Page
+app.get('/admin/dashboard', async (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Dashboard - MOGU Edu</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <!-- Admin Navigation -->
+        <nav class="bg-red-800 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <img src="/mogu-logo.png" alt="MOGU Edu" class="h-12 brightness-0 invert">
+                        <span class="ml-3 text-xl font-bold">Admin Panel</span>
+                    </div>
+                    <div class="flex items-center space-x-6">
+                        <a href="/admin/dashboard" class="hover:text-gray-200 font-semibold border-b-2 border-white pb-1">
+                            <i class="fas fa-home mr-1"></i>Dashboard
+                        </a>
+                        <a href="/admin/certificates" class="hover:text-gray-200">
+                            <i class="fas fa-certificate mr-1"></i>Certificates
+                        </a>
+                        <a href="/admin/centers" class="hover:text-gray-200">
+                            <i class="fas fa-building mr-1"></i>Centers
+                        </a>
+                        <a href="/admin/programs" class="hover:text-gray-200">
+                            <i class="fas fa-book mr-1"></i>Programs
+                        </a>
+                        <button onclick="logout()" class="hover:text-gray-200">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Dashboard Content -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-8">
+                <i class="fas fa-chart-line mr-2"></i>Dashboard Overview
+            </h1>
+
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Total Certificates</p>
+                            <p class="text-3xl font-bold text-gray-800" id="total-certificates">-</p>
+                        </div>
+                        <div class="text-4xl text-blue-500">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Active Centers</p>
+                            <p class="text-3xl font-bold text-gray-800" id="total-centers">-</p>
+                        </div>
+                        <div class="text-4xl text-green-500">
+                            <i class="fas fa-building"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Active Programs</p>
+                            <p class="text-3xl font-bold text-gray-800" id="total-programs">-</p>
+                        </div>
+                        <div class="text-4xl text-purple-500">
+                            <i class="fas fa-book"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Valid Certificates</p>
+                            <p class="text-3xl font-bold text-gray-800" id="valid-certificates">-</p>
+                        </div>
+                        <div class="text-4xl text-green-600">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-bolt mr-2"></i>Quick Actions
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <a href="/admin/certificates?action=add" class="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg hover:bg-blue-100 transition text-center">
+                        <i class="fas fa-plus-circle text-3xl text-blue-600 mb-2"></i>
+                        <p class="font-semibold text-blue-800">Add New Certificate</p>
+                    </a>
+                    <a href="/admin/centers?action=add" class="bg-green-50 border-2 border-green-200 p-4 rounded-lg hover:bg-green-100 transition text-center">
+                        <i class="fas fa-building text-3xl text-green-600 mb-2"></i>
+                        <p class="font-semibold text-green-800">Add Training Center</p>
+                    </a>
+                    <a href="/admin/programs?action=add" class="bg-purple-50 border-2 border-purple-200 p-4 rounded-lg hover:bg-purple-100 transition text-center">
+                        <i class="fas fa-book text-3xl text-purple-600 mb-2"></i>
+                        <p class="font-semibold text-purple-800">Add Training Program</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+          // Load statistics
+          axios.get('/api/stats')
+            .then(response => {
+              if (response.data.success) {
+                const stats = response.data.stats;
+                document.getElementById('total-certificates').textContent = stats.issuedCertificates;
+                document.getElementById('total-centers').textContent = stats.accreditedCenters;
+                document.getElementById('total-programs').textContent = stats.accreditedPrograms;
+                document.getElementById('valid-certificates').textContent = stats.issuedCertificates;
+              }
+            })
+            .catch(error => console.error('Error loading stats:', error));
+
+          function logout() {
+            axios.post('/api/admin/logout')
+              .then(() => {
+                document.cookie = 'admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                window.location.href = '/admin/login';
+              })
+              .catch(error => console.error('Logout error:', error));
+          }
+        </script>
+    </body>
+    </html>
+  `)
+})
