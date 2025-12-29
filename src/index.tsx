@@ -319,6 +319,59 @@ app.post('/api/admin/logout', async (c) => {
   return c.json({ success: true });
 });
 
+// Admin Change Password API
+app.post('/api/admin/change-password', async (c) => {
+  const { DB } = c.env;
+  const sessionToken = c.req.cookie('admin_session');
+  
+  if (!sessionToken) {
+    return c.json({ success: false, message: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const { currentPassword, newPassword } = await c.req.json();
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return c.json({ success: false, message: 'Current password and new password are required' }, 400);
+    }
+
+    if (newPassword.length < 6) {
+      return c.json({ success: false, message: 'New password must be at least 6 characters' }, 400);
+    }
+
+    // Get admin user from session
+    const session = await DB.prepare(`
+      SELECT s.admin_id, u.username, u.password_hash 
+      FROM admin_sessions s
+      JOIN admin_users u ON s.admin_id = u.id
+      WHERE s.session_token = ? AND s.expires_at > datetime('now')
+    `).bind(sessionToken).first();
+
+    if (!session) {
+      return c.json({ success: false, message: 'Invalid session' }, 401);
+    }
+
+    // Verify current password
+    if (!verifyPassword(currentPassword, session.password_hash)) {
+      return c.json({ success: false, message: 'Current password is incorrect' }, 401);
+    }
+
+    // Update password (direct hash - simple method)
+    await DB.prepare(`
+      UPDATE admin_users 
+      SET password_hash = ? 
+      WHERE id = ?
+    `).bind(newPassword, session.admin_id).run();
+
+    return c.json({ success: true, message: 'Password changed successfully' });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    return c.json({ success: false, message: 'Failed to change password' }, 500);
+  }
+});
+
 // Admin API - Get all certificates
 app.get('/api/admin/certificates', async (c) => {
   const { DB } = c.env;
@@ -650,7 +703,7 @@ app.get('/admin/dashboard', async (c) => {
                 <h2 class="text-xl font-bold text-gray-800 mb-4">
                     <i class="fas fa-bolt mr-2"></i>Quick Actions
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <a href="/admin/certificates?action=add" class="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg hover:bg-blue-100 transition text-center">
                         <i class="fas fa-plus-circle text-3xl text-blue-600 mb-2"></i>
                         <p class="font-semibold text-blue-800">Add New Certificate</p>
@@ -662,6 +715,10 @@ app.get('/admin/dashboard', async (c) => {
                     <a href="/admin/programs?action=add" class="bg-purple-50 border-2 border-purple-200 p-4 rounded-lg hover:bg-purple-100 transition text-center">
                         <i class="fas fa-book text-3xl text-purple-600 mb-2"></i>
                         <p class="font-semibold text-purple-800">Add Training Program</p>
+                    </a>
+                    <a href="/admin/change-password" class="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg hover:bg-orange-100 transition text-center">
+                        <i class="fas fa-key text-3xl text-orange-600 mb-2"></i>
+                        <p class="font-semibold text-orange-800">Change Password</p>
                     </a>
                 </div>
             </div>
@@ -1690,6 +1747,200 @@ app.get('/admin/programs', async (c) => {
             } catch (error) {
               console.error('Error saving program:', error);
               alert('Error saving program');
+            }
+          });
+
+          function logout() {
+            axios.post('/api/admin/logout')
+              .then(() => {
+                document.cookie = 'admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                window.location.href = '/admin/login';
+              })
+              .catch(error => console.error('Logout error:', error));
+          }
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// Admin Change Password Page
+app.get('/admin/change-password', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Change Password - MOGU Edu Admin</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    </head>
+    <body class="bg-gray-100">
+        <!-- Navigation -->
+        <nav class="bg-blue-600 text-white shadow-lg">
+            <div class="container mx-auto px-4">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-8">
+                        <a href="/admin/dashboard" class="text-xl font-bold">
+                            <i class="fas fa-graduation-cap mr-2"></i>MOGU Edu Admin
+                        </a>
+                        <div class="hidden md:flex space-x-4">
+                            <a href="/admin/dashboard" class="hover:bg-blue-700 px-3 py-2 rounded">
+                                <i class="fas fa-tachometer-alt mr-1"></i>Dashboard
+                            </a>
+                            <a href="/admin/certificates" class="hover:bg-blue-700 px-3 py-2 rounded">
+                                <i class="fas fa-certificate mr-1"></i>Certificates
+                            </a>
+                            <a href="/admin/centers" class="hover:bg-blue-700 px-3 py-2 rounded">
+                                <i class="fas fa-building mr-1"></i>Centers
+                            </a>
+                            <a href="/admin/programs" class="hover:bg-blue-700 px-3 py-2 rounded">
+                                <i class="fas fa-book mr-1"></i>Programs
+                            </a>
+                            <a href="/admin/change-password" class="bg-blue-700 px-3 py-2 rounded">
+                                <i class="fas fa-key mr-1"></i>Change Password
+                            </a>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container mx-auto px-4 py-8">
+            <div class="max-w-md mx-auto">
+                <div class="bg-white rounded-lg shadow-lg p-8">
+                    <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-key text-blue-600 mr-3"></i>
+                        Change Password
+                    </h1>
+
+                    <form id="password-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1"></i>Current Password
+                            </label>
+                            <input 
+                                type="password" 
+                                id="current-password"
+                                required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Enter current password"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1"></i>New Password
+                            </label>
+                            <input 
+                                type="password" 
+                                id="new-password"
+                                required
+                                minlength="6"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Enter new password (min 6 characters)"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-1"></i>Confirm New Password
+                            </label>
+                            <input 
+                                type="password" 
+                                id="confirm-password"
+                                required
+                                minlength="6"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Confirm new password"
+                            >
+                        </div>
+
+                        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                        </div>
+
+                        <div id="success-message" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                        </div>
+
+                        <button 
+                            type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+                        >
+                            <i class="fas fa-save mr-2"></i>Change Password
+                        </button>
+                    </form>
+
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <a href="/admin/dashboard" class="text-blue-600 hover:text-blue-800 flex items-center justify-center">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+          // Check authentication
+          const sessionCookie = document.cookie.split('; ').find(row => row.startsWith('admin_session='));
+          if (!sessionCookie) {
+            window.location.href = '/admin/login';
+          }
+
+          document.getElementById('password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            // Validate passwords match
+            if (newPassword !== confirmPassword) {
+              errorDiv.textContent = 'New passwords do not match!';
+              errorDiv.classList.remove('hidden');
+              return;
+            }
+
+            // Validate password length
+            if (newPassword.length < 6) {
+              errorDiv.textContent = 'New password must be at least 6 characters long!';
+              errorDiv.classList.remove('hidden');
+              return;
+            }
+
+            try {
+              const response = await axios.post('/api/admin/change-password', {
+                currentPassword,
+                newPassword
+              });
+
+              if (response.data.success) {
+                successDiv.textContent = 'Password changed successfully! You can now use your new password.';
+                successDiv.classList.remove('hidden');
+                
+                // Clear form
+                document.getElementById('password-form').reset();
+
+                // Redirect to dashboard after 2 seconds
+                setTimeout(() => {
+                  window.location.href = '/admin/dashboard';
+                }, 2000);
+              }
+            } catch (error) {
+              console.error('Change password error:', error);
+              errorDiv.textContent = error.response?.data?.message || 'Error changing password. Please try again.';
+              errorDiv.classList.remove('hidden');
             }
           });
 
