@@ -371,6 +371,28 @@ app.post('/api/contact', async (c) => {
       return c.json({ success: false, message: 'Please fill all required fields' }, 400);
     }
 
+    // Save to database
+    const { DB } = c.env;
+    
+    // Create contact_submissions table if not exists
+    await DB.prepare(`
+      CREATE TABLE IF NOT EXISTS contact_submissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        organization TEXT,
+        inquiry_type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // Insert submission
+    const result = await DB.prepare(`
+      INSERT INTO contact_submissions (name, email, organization, inquiry_type, message)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(name, email, organization || '', inquiryType, message).run();
+
     // Prepare email content
     const emailContent = `
 New Contact Form Submission from MOGU Website
@@ -386,64 +408,64 @@ ${message}
 ---
 Sent from: moguedu.ca/contact
 Time: ${new Date().toISOString()}
+Submission ID: ${result.meta.last_row_id}
     `.trim();
 
-    // Check if RESEND_API_KEY is configured
-    const RESEND_API_KEY = c.env.RESEND_API_KEY;
-    
-    if (!RESEND_API_KEY) {
-      // If no API key, just log and return success (temporary)
-      console.log('Contact form submission (no email service configured):', {
-        name, email, inquiryType
-      });
-      
-      return c.json({ 
-        success: true, 
-        message: 'Thank you for your message. We will contact you at ' + email + ' within 24-48 hours.',
-        note: 'Email service not configured yet. Please email info@moguedu.ca directly.'
-      });
-    }
-
-    // Send email using Resend API
-    const resendResponse = await fetch('https://api.resend.com/emails', {
+    // Send email using MailChannels (Cloudflare Email Workers)
+    const emailResponse = await fetch('https://api.mailchannels.net/tx/v1/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'MOGU Contact Form <contact@moguedu.ca>',
-        to: 'info@moguedu.ca',
-        reply_to: email,
+        personalizations: [{
+          to: [{ email: 'info@moguedu.ca', name: 'MOGU Education' }],
+          reply_to: { email: email, name: name }
+        }],
+        from: {
+          email: 'noreply@moguedu.ca',
+          name: 'MOGU Contact Form'
+        },
         subject: `New Inquiry: ${inquiryType} from ${name}`,
-        text: emailContent,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #991b1b;">New Contact Form Submission</h2>
-            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p><strong>Name:</strong> ${name}</p>
-              <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
-              <p><strong>Organization:</strong> ${organization || 'N/A'}</p>
-              <p><strong>Inquiry Type:</strong> ${inquiryType}</p>
+        content: [{
+          type: 'text/plain',
+          value: emailContent
+        }, {
+          type: 'text/html',
+          value: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #991b1b;">New Contact Form Submission</h2>
+              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+                <p><strong>Organization:</strong> ${organization || 'N/A'}</p>
+                <p><strong>Inquiry Type:</strong> ${inquiryType}</p>
+              </div>
+              <div style="margin: 20px 0;">
+                <h3>Message:</h3>
+                <p style="white-space: pre-wrap;">${message}</p>
+              </div>
+              <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 12px;">
+                Sent from: <a href="https://moguedu.ca/contact">moguedu.ca/contact</a><br>
+                Time: ${new Date().toLocaleString()}<br>
+                Submission ID: ${result.meta.last_row_id}
+              </p>
             </div>
-            <div style="margin: 20px 0;">
-              <h3>Message:</h3>
-              <p style="white-space: pre-wrap;">${message}</p>
-            </div>
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 12px;">
-              Sent from: <a href="https://moguedu.ca/contact">moguedu.ca/contact</a><br>
-              Time: ${new Date().toLocaleString()}
-            </p>
-          </div>
-        `
+          `
+        }]
       })
     });
 
-    if (!resendResponse.ok) {
-      const errorData = await resendResponse.json();
-      console.error('Resend API error:', errorData);
-      throw new Error('Failed to send email');
+    if (!emailResponse.ok) {
+      const errorText = await emailResponse.text();
+      console.error('MailChannels API error:', errorText);
+      // Still return success because we saved to DB
+      return c.json({ 
+        success: true, 
+        message: 'Thank you for your message! We have received your inquiry and will contact you at ' + email + ' within 24-48 hours.',
+        note: 'Your message has been saved. If you don\'t hear from us, please email info@moguedu.ca directly.'
+      });
     }
 
     return c.json({ 
@@ -776,6 +798,9 @@ app.get('/admin/dashboard', async (c) => {
                         </a>
                         <a href="/admin/programs" class="hover:text-gray-200">
                             <i class="fas fa-book mr-1"></i>Programs
+                        </a>
+                        <a href="/admin/messages" class="hover:text-gray-200">
+                            <i class="fas fa-envelope mr-1"></i>Messages
                         </a>
                         <button onclick="logout()" class="hover:text-gray-200">
                             <i class="fas fa-sign-out-alt mr-1"></i>Logout
@@ -2110,6 +2135,274 @@ app.get('/admin/change-password', (c) => {
   `)
 })
 
+// Admin Messages Page
+app.get('/admin/messages', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contact Messages - MOGU Edu Admin</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    </head>
+    <body class="bg-gray-100">
+        <!-- Admin Navigation -->
+        <nav class="bg-red-800 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <img src="/mogu-logo.png" alt="MOGU Edu" class="h-12 brightness-0 invert">
+                        <span class="ml-3 text-xl font-bold">Admin Panel</span>
+                    </div>
+                    <div class="flex items-center space-x-6">
+                        <a href="/admin/dashboard" class="hover:text-gray-200">
+                            <i class="fas fa-home mr-1"></i>Dashboard
+                        </a>
+                        <a href="/admin/certificates" class="hover:text-gray-200">
+                            <i class="fas fa-certificate mr-1"></i>Certificates
+                        </a>
+                        <a href="/admin/centers" class="hover:text-gray-200">
+                            <i class="fas fa-building mr-1"></i>Centers
+                        </a>
+                        <a href="/admin/programs" class="hover:text-gray-200">
+                            <i class="fas fa-book mr-1"></i>Programs
+                        </a>
+                        <a href="/admin/messages" class="hover:text-gray-200 font-semibold border-b-2 border-white pb-1">
+                            <i class="fas fa-envelope mr-1"></i>Messages
+                        </a>
+                        <button onclick="logout()" class="hover:text-gray-200">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Messages Content -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-envelope text-red-800 mr-2"></i>
+                        Contact Messages
+                    </h1>
+                    <div class="text-sm text-gray-600">
+                        <span id="message-count">0</span> messages
+                    </div>
+                </div>
+
+                <!-- Messages Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Name
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Inquiry Type
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="messages-tbody" class="bg-white divide-y divide-gray-200">
+                            <!-- Messages will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg">No messages yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Detail Modal -->
+        <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800">Message Details</h2>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="border-b pb-4">
+                            <p class="text-sm text-gray-500">From</p>
+                            <p id="modal-name" class="text-lg font-semibold"></p>
+                            <p id="modal-email" class="text-blue-600"></p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">Organization</p>
+                            <p id="modal-organization" class="text-gray-800"></p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">Inquiry Type</p>
+                            <p id="modal-inquiry-type" class="text-gray-800"></p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">Date</p>
+                            <p id="modal-date" class="text-gray-800"></p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500 mb-2">Message</p>
+                            <div id="modal-message" class="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap"></div>
+                        </div>
+                        
+                        <div class="flex justify-between pt-4">
+                            <a id="modal-reply-btn" href="#" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-reply mr-2"></i>Reply via Email
+                            </a>
+                            <button onclick="deleteMessage()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">
+                                <i class="fas fa-trash mr-2"></i>Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let currentMessageId = null;
+
+            async function loadMessages() {
+                try {
+                    const response = await axios.get('/api/admin/messages');
+                    const messages = response.data.messages || [];
+                    
+                    document.getElementById('message-count').textContent = messages.length;
+                    
+                    if (messages.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        document.getElementById('messages-tbody').innerHTML = '';
+                        return;
+                    }
+                    
+                    document.getElementById('empty-state').classList.add('hidden');
+                    
+                    const tbody = document.getElementById('messages-tbody');
+                    tbody.innerHTML = messages.map(msg => {
+                        const date = new Date(msg.created_at).toLocaleString();
+                        return \`
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    \${date}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">\${msg.name}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">\${msg.email}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                        \${msg.inquiry_type}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button onclick="viewMessage(\${msg.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                                        <i class="fas fa-eye mr-1"></i>View
+                                    </button>
+                                    <button onclick="deleteMessageDirect(\${msg.id})" class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        \`;
+                    }).join('');
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                    alert('Error loading messages');
+                }
+            }
+
+            async function viewMessage(id) {
+                try {
+                    const response = await axios.get('/api/admin/messages');
+                    const message = response.data.messages.find(m => m.id === id);
+                    
+                    if (!message) return;
+                    
+                    currentMessageId = id;
+                    document.getElementById('modal-name').textContent = message.name;
+                    document.getElementById('modal-email').textContent = message.email;
+                    document.getElementById('modal-organization').textContent = message.organization || 'N/A';
+                    document.getElementById('modal-inquiry-type').textContent = message.inquiry_type;
+                    document.getElementById('modal-date').textContent = new Date(message.created_at).toLocaleString();
+                    document.getElementById('modal-message').textContent = message.message;
+                    document.getElementById('modal-reply-btn').href = \`mailto:\${message.email}?subject=Re: \${message.inquiry_type}\`;
+                    
+                    document.getElementById('message-modal').classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error viewing message:', error);
+                }
+            }
+
+            function closeModal() {
+                document.getElementById('message-modal').classList.add('hidden');
+                currentMessageId = null;
+            }
+
+            async function deleteMessage() {
+                if (!currentMessageId) return;
+                
+                if (!confirm('Are you sure you want to delete this message?')) return;
+                
+                try {
+                    await axios.delete(\`/api/admin/messages/\${currentMessageId}\`);
+                    closeModal();
+                    loadMessages();
+                } catch (error) {
+                    console.error('Error deleting message:', error);
+                    alert('Error deleting message');
+                }
+            }
+
+            async function deleteMessageDirect(id) {
+                if (!confirm('Are you sure you want to delete this message?')) return;
+                
+                try {
+                    await axios.delete(\`/api/admin/messages/\${id}\`);
+                    loadMessages();
+                } catch (error) {
+                    console.error('Error deleting message:', error);
+                    alert('Error deleting message');
+                }
+            }
+
+            async function logout() {
+                await axios.post('/api/admin/logout');
+                document.cookie = 'admin_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                window.location.href = '/admin/login';
+            }
+
+            // Load messages on page load
+            loadMessages();
+        </script>
+    </body>
+    </html>
+  `)
+})
+
 
 // ============================================
 // ADDITIONAL ADMIN API ROUTES FOR CENTERS
@@ -2246,6 +2539,59 @@ app.delete('/api/admin/programs/:id', async (c) => {
     return c.json({ success: true });
   } catch (error) {
     return c.json({ success: false, message: 'Error deleting program' }, 500);
+  }
+});
+
+// ============================================
+// ADMIN API ROUTES FOR CONTACT MESSAGES
+// ============================================
+
+// Get all contact messages
+app.get('/api/admin/messages', async (c) => {
+  const { DB } = c.env;
+  try {
+    const { results } = await DB.prepare(`
+      SELECT id, name, email, organization, inquiry_type, message, created_at
+      FROM contact_submissions
+      ORDER BY created_at DESC
+    `).all();
+    
+    return c.json({ success: true, messages: results });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    return c.json({ success: false, message: 'Error fetching messages' }, 500);
+  }
+});
+
+// Mark message as read (optional - for future enhancement)
+app.put('/api/admin/messages/:id/read', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  try {
+    // Add is_read column if needed
+    await DB.prepare(`
+      ALTER TABLE contact_submissions ADD COLUMN is_read INTEGER DEFAULT 0
+    `).run().catch(() => {}); // Ignore if column exists
+    
+    await DB.prepare(`
+      UPDATE contact_submissions SET is_read = 1 WHERE id = ?
+    `).bind(id).run();
+    
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error updating message' }, 500);
+  }
+});
+
+// Delete message
+app.delete('/api/admin/messages/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  try {
+    await DB.prepare(`DELETE FROM contact_submissions WHERE id = ?`).bind(id).run();
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ success: false, message: 'Error deleting message' }, 500);
   }
 });
 
@@ -3629,22 +3975,12 @@ app.get('/contact', (c) => {
               
               if (response.data.success) {
                 messageDiv.className = 'mt-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg';
-                messageDiv.innerHTML = `
-                  <p class="text-green-800">
-                    <i class="fas fa-check-circle mr-2"></i>${response.data.message}
-                  </p>
-                  ${response.data.note ? `<p class="text-gray-600 text-sm mt-2"><i class="fas fa-info-circle mr-1"></i>${response.data.note}</p>` : ''}
-                `;
+                messageDiv.innerHTML = '<p class="text-green-800"><i class="fas fa-check-circle mr-2"></i>' + response.data.message + '</p>' + (response.data.note ? '<p class="text-gray-600 text-sm mt-2"><i class="fas fa-info-circle mr-1"></i>' + response.data.note + '</p>' : '');
                 form.reset();
               }
             } catch (error) {
               messageDiv.className = 'mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg';
-              messageDiv.innerHTML = `
-                <p class="text-red-800">
-                  <i class="fas fa-exclamation-circle mr-2"></i>
-                  ${error.response?.data?.message || 'Error sending message. Please try again or email us directly at info@moguedu.ca'}
-                </p>
-              `;
+              messageDiv.innerHTML = '<p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>' + (error.response?.data?.message || 'Error sending message. Please try again or email us directly at info@moguedu.ca') + '</p>';
             } finally {
               submitButton.disabled = false;
               submitButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Message';
