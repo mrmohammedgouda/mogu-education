@@ -263,6 +263,38 @@ async function adminAuth(c: any, next: any) {
   await next();
 }
 
+// Protect all admin API routes except login and logout
+app.use('/api/admin/*', async (c, next) => {
+  const path = c.req.path;
+  
+  // Skip authentication for login and logout
+  if (path === '/api/admin/login' || path === '/api/admin/logout') {
+    return next();
+  }
+  
+  // Check session for all other admin routes
+  const sessionToken = getCookie(c, 'admin_session');
+  
+  if (!sessionToken) {
+    return c.json({ success: false, message: 'Unauthorized - Please login' }, 401);
+  }
+
+  const { DB } = c.env;
+  const session = await DB.prepare(`
+    SELECT s.*, u.username, u.full_name, u.role 
+    FROM admin_sessions s
+    JOIN admin_users u ON s.admin_id = u.id
+    WHERE s.session_token = ? AND s.expires_at > datetime('now') AND u.is_active = 1
+  `).bind(sessionToken).first();
+
+  if (!session) {
+    return c.json({ success: false, message: 'Session expired - Please login again' }, 401);
+  }
+
+  c.set('admin', session);
+  await next();
+});
+
 // Admin Login API
 app.post('/api/admin/login', async (c) => {
   const { DB } = c.env;
@@ -1259,10 +1291,10 @@ app.get('/admin/centers', async (c) => {
                         </div>
 
                         <div>
-                            <label class="block text-gray-700 font-semibold mb-2">City</label>
-                            <input type="text" id="center-city"
+                            <label class="block text-gray-700 font-semibold mb-2">Contact Email</label>
+                            <input type="email" id="center-email"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800"
-                                placeholder="City name">
+                                placeholder="contact@center.com">
                         </div>
                     </div>
 
@@ -1276,6 +1308,12 @@ app.get('/admin/centers', async (c) => {
                     <div>
                         <label class="block text-gray-700 font-semibold mb-2">Accreditation Date *</label>
                         <input type="date" id="center-accred-date" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Expiry Date</label>
+                        <input type="date" id="center-expiry-date"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-800">
                     </div>
 
@@ -1397,7 +1435,8 @@ app.get('/admin/centers', async (c) => {
             document.getElementById('center-id').value = center.id;
             document.getElementById('center-name').value = center.name;
             document.getElementById('center-country').value = center.country;
-            document.getElementById('center-city').value = center.city || '';
+            document.getElementById('center-email').value = center.contact_email || '';
+            document.getElementById('center-expiry-date').value = center.expiry_date || '';
             document.getElementById('center-website').value = center.website || '';
             document.getElementById('center-accred-date').value = center.accreditation_date;
             document.getElementById('center-status').value = center.accreditation_status;
@@ -1427,7 +1466,8 @@ app.get('/admin/centers', async (c) => {
             const data = {
               name: document.getElementById('center-name').value,
               country: document.getElementById('center-country').value,
-              city: document.getElementById('center-city').value || null,
+              contact_email: document.getElementById('center-email').value || null,
+              expiry_date: document.getElementById('center-expiry-date').value || null,
               website: document.getElementById('center-website').value || null,
               accreditation_date: document.getElementById('center-accred-date').value,
               accreditation_status: document.getElementById('center-status').value
@@ -1993,18 +2033,20 @@ app.post('/api/admin/centers', async (c) => {
   const data = await c.req.json();
   try {
     const result = await DB.prepare(`
-      INSERT INTO training_centers (name, country, city, website, accreditation_date, accreditation_status)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO training_centers (name, country, website, contact_email, accreditation_date, accreditation_status, expiry_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).bind(
       data.name,
       data.country,
-      data.city || null,
       data.website || null,
+      data.contact_email || null,
       data.accreditation_date,
-      data.accreditation_status || 'active'
+      data.accreditation_status || 'active',
+      data.expiry_date || null
     ).run();
     return c.json({ success: true, id: result.meta.last_row_id });
   } catch (error) {
+    console.error('Error adding center:', error);
     return c.json({ success: false, message: 'Error adding center' }, 500);
   }
 });
@@ -2016,20 +2058,22 @@ app.put('/api/admin/centers/:id', async (c) => {
   try {
     await DB.prepare(`
       UPDATE training_centers 
-      SET name = ?, country = ?, city = ?, website = ?, 
-          accreditation_date = ?, accreditation_status = ?, updated_at = datetime('now')
+      SET name = ?, country = ?, website = ?, contact_email = ?,
+          accreditation_date = ?, accreditation_status = ?, expiry_date = ?, updated_at = datetime('now')
       WHERE id = ?
     `).bind(
       data.name,
       data.country,
-      data.city || null,
       data.website || null,
+      data.contact_email || null,
       data.accreditation_date,
       data.accreditation_status,
+      data.expiry_date || null,
       id
     ).run();
     return c.json({ success: true });
   } catch (error) {
+    console.error('Error updating center:', error);
     return c.json({ success: false, message: 'Error updating center' }, 500);
   }
 });
