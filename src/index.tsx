@@ -242,8 +242,7 @@ app.get('/', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <img src="/mogu-logo.png" alt="MOGU Edu" class="h-10">
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <img src="/mogu-logo.png" alt="MOGU Edu" class="h-16">
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-red-800 font-semibold">Home</a>
@@ -464,8 +463,7 @@ app.get('/about', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
@@ -652,8 +650,7 @@ app.get('/verify', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
@@ -920,8 +917,7 @@ app.get('/services', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
@@ -1091,8 +1087,7 @@ app.get('/standards', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
@@ -1324,8 +1319,7 @@ app.get('/centers', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
@@ -1443,8 +1437,7 @@ app.get('/contact', (c) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
-                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-10"></a>
-                        <span class="ml-3 text-xl font-bold text-gray-800">MOGU Edu</span>
+                        <a href="/"><img src="/mogu-logo.png" alt="MOGU Edu" class="h-16"></a>
                     </div>
                     <div class="hidden md:flex space-x-8">
                         <a href="/" class="text-gray-600 hover:text-red-800">Home</a>
