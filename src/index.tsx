@@ -3413,7 +3413,7 @@ app.get('/contact', (c) => {
                     <div class="bg-white p-6 rounded-lg shadow-md text-center">
                         <div class="text-4xl text-red-800 mb-4"><i class="fas fa-map-marker-alt"></i></div>
                         <h3 class="font-bold mb-2">Location</h3>
-                        <p class="text-gray-600 text-sm">Canada</p>
+                        <p class="text-gray-600 text-sm">Halifax - NS - Canada</p>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md text-center">
                         <div class="text-4xl text-red-800 mb-4"><i class="fas fa-clock"></i></div>
