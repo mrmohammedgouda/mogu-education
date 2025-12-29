@@ -14,6 +14,9 @@ app.use('/api/*', cors())
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public' }))
 
+// Serve logo file
+app.get('/mogu-logo.png', serveStatic({ path: './mogu-logo.png' }))
+
 // API Routes
 
 // Certificate Verification API
