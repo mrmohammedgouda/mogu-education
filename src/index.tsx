@@ -3424,6 +3424,21 @@ app.get('/contact', (c) => {
 
                 <div class="bg-white p-8 rounded-lg shadow-md">
                     <h2 class="text-2xl font-bold mb-6 text-center">Send Us a Message</h2>
+                    
+                    <!-- Quick Email Button -->
+                    <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+                        <h3 class="font-bold text-blue-800 mb-2">
+                            <i class="fas fa-envelope mr-2"></i>Email Us Directly
+                        </h3>
+                        <p class="text-gray-700 mb-3">For immediate assistance, send us an email:</p>
+                        <a href="mailto:info@moguedu.ca?subject=Inquiry from MOGU Website&body=Hello MOGU Team,%0D%0A%0D%0AName:%0D%0AOrganization:%0D%0AInquiry Type:%0D%0A%0D%0AMessage:%0D%0A" 
+                           class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            <i class="fas fa-paper-plane mr-2"></i>Open Email Client
+                        </a>
+                    </div>
+
+                    <!-- Contact Form -->
+                    <p class="text-center text-gray-600 mb-4">Or fill out the form below (Note: This is a demo form)</p>
                     <form id="contact-form" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
