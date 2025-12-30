@@ -3878,8 +3878,8 @@ app.get('/contact', (c) => {
                     <div id="form-message" class="mt-4 hidden"></div>
                 </div>
 
-                <div class="mt-12 bg-red-50 border-l-4 border-red-800 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold text-red-800 mb-3">
+                <div class="mt-12 bg-gray-50 border-l-4 border-gray-400 p-6 rounded-lg">
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">
                         <i class="fas fa-info-circle mr-2"></i>Before You Contact Us
                     </h3>
                     <ul class="space-y-2 text-gray-700">
