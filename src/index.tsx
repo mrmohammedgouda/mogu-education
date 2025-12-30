@@ -782,7 +782,7 @@ app.get('/admin/dashboard', async (c) => {
                             <p class="text-gray-500 text-sm">Active Centers</p>
                             <p class="text-3xl font-bold text-gray-800" id="total-centers">-</p>
                         </div>
-                        <div class="text-4xl text-green-500">
+                        <div class="text-4xl text-gray-500">
                             <i class="fas fa-building"></i>
                         </div>
                     </div>
@@ -806,7 +806,7 @@ app.get('/admin/dashboard', async (c) => {
                             <p class="text-gray-500 text-sm">Valid Certificates</p>
                             <p class="text-3xl font-bold text-gray-800" id="valid-certificates">-</p>
                         </div>
-                        <div class="text-4xl text-green-600">
+                        <div class="text-4xl text-gray-600">
                             <i class="fas fa-check-circle"></i>
                         </div>
                     </div>
@@ -828,9 +828,9 @@ app.get('/admin/dashboard', async (c) => {
                         <i class="fas fa-plus-circle text-3xl text-blue-600 mb-2"></i>
                         <p class="font-semibold text-blue-800">Add Certificate</p>
                     </a>
-                    <a href="/admin/centers?action=add" class="bg-green-50 border-2 border-green-200 p-4 rounded-lg hover:bg-green-100 transition text-center">
-                        <i class="fas fa-building text-3xl text-green-600 mb-2"></i>
-                        <p class="font-semibold text-green-800">Add Center</p>
+                    <a href="/admin/centers?action=add" class="bg-gray-50 border-2 border-gray-200 p-4 rounded-lg hover:bg-gray-100 transition text-center">
+                        <i class="fas fa-building text-3xl text-gray-600 mb-2"></i>
+                        <p class="font-semibold text-gray-800">Add Center</p>
                     </a>
                     <a href="/admin/change-password" class="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg hover:bg-orange-100 transition text-center">
                         <i class="fas fa-key text-3xl text-orange-600 mb-2"></i>
@@ -1147,7 +1147,7 @@ app.get('/admin/certificates', async (c) => {
                 <td class="px-6 py-4 text-sm">\${cert.issue_date}</td>
                 <td class="px-6 py-4">
                   <span class="px-2 py-1 rounded-full text-xs font-semibold 
-                    \${cert.status === 'valid' ? 'bg-green-100 text-green-800' : 
+                    \${cert.status === 'valid' ? 'bg-gray-100 text-gray-800' : 
                       cert.status === 'expired' ? 'bg-red-100 text-red-800' : 
                       'bg-yellow-100 text-yellow-800'}">
                     \${cert.status.toUpperCase()}
@@ -1463,7 +1463,7 @@ app.get('/admin/centers', async (c) => {
                     </p>
                   </div>
                   <span class="px-3 py-1 rounded-full text-xs font-semibold
-                    \${center.accreditation_status === 'active' ? 'bg-green-100 text-green-800' : 
+                    \${center.accreditation_status === 'active' ? 'bg-gray-100 text-gray-800' : 
                       center.accreditation_status === 'suspended' ? 'bg-yellow-100 text-yellow-800' : 
                       'bg-red-100 text-red-800'}">
                     \${center.accreditation_status.toUpperCase()}
@@ -1793,7 +1793,7 @@ app.get('/admin/programs', async (c) => {
                 <td class="px-6 py-4 text-sm">\${prog.accreditation_date}</td>
                 <td class="px-6 py-4">
                   <span class="px-2 py-1 rounded-full text-xs font-semibold 
-                    \${prog.accreditation_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    \${prog.accreditation_status === 'active' ? 'bg-gray-100 text-gray-800' : 'bg-red-100 text-red-800'}">
                     \${prog.accreditation_status.toUpperCase()}
                   </span>
                 </td>
@@ -1996,7 +1996,7 @@ app.get('/admin/change-password', (c) => {
                         <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                         </div>
 
-                        <div id="success-message" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                        <div id="success-message" class="hidden bg-gray-100 border border-gray-400 text-gray-700 px-4 py-3 rounded">
                         </div>
 
                         <button 
@@ -2875,19 +2875,19 @@ app.get('/about', (c) => {
                     </h3>
                     <div class="space-y-3">
                         <div class="flex items-start">
-                            <i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
+                            <i class="fas fa-check-circle text-gray-600 mt-1 mr-3"></i>
                             <p class="text-gray-700">Officially registered in Canada</p>
                         </div>
                         <div class="flex items-start">
-                            <i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
+                            <i class="fas fa-check-circle text-gray-600 mt-1 mr-3"></i>
                             <p class="text-gray-700">Operates as an independent accreditation body</p>
                         </div>
                         <div class="flex items-start">
-                            <i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
+                            <i class="fas fa-check-circle text-gray-600 mt-1 mr-3"></i>
                             <p class="text-gray-700">Applies transparent, non-biased evaluation processes</p>
                         </div>
                         <div class="flex items-start">
-                            <i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
+                            <i class="fas fa-check-circle text-gray-600 mt-1 mr-3"></i>
                             <p class="text-gray-700">Complies with data protection and privacy principles</p>
                         </div>
                     </div>
@@ -3072,10 +3072,10 @@ app.get('/verify', (c) => {
                     <div id="result-area" class="mt-8 hidden">
                         <!-- Success Result -->
                         <div id="success-result" class="hidden">
-                            <div class="bg-green-50 border-l-4 border-green-500 p-6 rounded-lg">
+                            <div class="bg-gray-50 border-l-4 border-gray-500 p-6 rounded-lg">
                                 <div class="flex items-center mb-4">
-                                    <i class="fas fa-check-circle text-green-600 text-3xl mr-3"></i>
-                                    <h3 class="text-2xl font-bold text-green-800">Certificate Valid</h3>
+                                    <i class="fas fa-check-circle text-gray-600 text-3xl mr-3"></i>
+                                    <h3 class="text-2xl font-bold text-gray-800">Certificate Valid</h3>
                                 </div>
                                 <p class="text-gray-700 mb-6">
                                     This certificate is valid and issued by a MOGU Education accredited provider.
@@ -3104,7 +3104,7 @@ app.get('/verify', (c) => {
                                     </div>
                                     <div>
                                         <p class="text-sm text-gray-600 font-semibold">Status</p>
-                                        <p class="text-green-600 font-semibold" id="result-status"></p>
+                                        <p class="text-gray-600 font-semibold" id="result-status"></p>
                                     </div>
                                 </div>
                             </div>
@@ -3290,14 +3290,14 @@ app.get('/services', (c) => {
                         <h3 class="text-2xl font-bold mb-4">Training Center Accreditation</h3>
                         <p class="text-gray-700 mb-4">Comprehensive evaluation and accreditation of training institutions based on:</p>
                         <ul class="space-y-2 text-gray-600">
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Governance & Management</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Trainer Qualifications</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Learning Delivery Quality</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Learner Experience</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Continuous Improvement</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Governance & Management</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Trainer Qualifications</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Learning Delivery Quality</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Learner Experience</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Continuous Improvement</li>
                         </ul>
-                        <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                            <p class="text-sm font-semibold text-green-800">Benefits:</p>
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm font-semibold text-gray-800">Benefits:</p>
                             <p class="text-sm text-gray-700">Official accreditation certificate, MOGU logo usage rights, listing in accredited registry</p>
                         </div>
                     </div>
@@ -3307,14 +3307,14 @@ app.get('/services', (c) => {
                         <h3 class="text-2xl font-bold mb-4">Program Accreditation</h3>
                         <p class="text-gray-700 mb-4">Review and accreditation of training programs focusing on:</p>
                         <ul class="space-y-2 text-gray-600">
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Learning Objectives</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Curriculum Structure</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Training Hours & Methodology</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Assessment Methods</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Market Relevance</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Learning Objectives</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Curriculum Structure</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Training Hours & Methodology</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Assessment Methods</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Market Relevance</li>
                         </ul>
-                        <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                            <p class="text-sm font-semibold text-green-800">Benefits:</p>
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm font-semibold text-gray-800">Benefits:</p>
                             <p class="text-sm text-gray-700">Enhanced program credibility, increased learner trust, competitive advantage</p>
                         </div>
                     </div>
@@ -3324,14 +3324,14 @@ app.get('/services', (c) => {
                         <h3 class="text-2xl font-bold mb-4">Professional Certification Accreditation</h3>
                         <p class="text-gray-700 mb-4">Accreditation of professional certifications ensuring:</p>
                         <ul class="space-y-2 text-gray-600">
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Credential Credibility</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Clear Competency Standards</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Market Alignment</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Valid Assessment Methods</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Online Verification System</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Credential Credibility</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Clear Competency Standards</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Market Alignment</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Valid Assessment Methods</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Online Verification System</li>
                         </ul>
-                        <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                            <p class="text-sm font-semibold text-green-800">Benefits:</p>
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm font-semibold text-gray-800">Benefits:</p>
                             <p class="text-sm text-gray-700">Global recognition, employer trust, verifiable credentials</p>
                         </div>
                     </div>
@@ -3341,14 +3341,14 @@ app.get('/services', (c) => {
                         <h3 class="text-2xl font-bold mb-4">Quality Assurance & Monitoring</h3>
                         <p class="text-gray-700 mb-4">Ongoing quality support including:</p>
                         <ul class="space-y-2 text-gray-600">
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Periodic Reviews</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Compliance Follow-ups</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Improvement Recommendations</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Performance Reports</li>
-                            <li><i class="fas fa-check text-green-600 mr-2"></i>Continuous Support</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Periodic Reviews</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Compliance Follow-ups</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Improvement Recommendations</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Performance Reports</li>
+                            <li><i class="fas fa-check text-gray-600 mr-2"></i>Continuous Support</li>
                         </ul>
-                        <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                            <p class="text-sm font-semibold text-green-800">Benefits:</p>
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm font-semibold text-gray-800">Benefits:</p>
                             <p class="text-sm text-gray-700">Maintained accreditation status, continuous improvement, expert guidance</p>
                         </div>
                     </div>
@@ -3626,7 +3626,7 @@ app.get('/standards', (c) => {
                 Object.keys(grouped).forEach(category => {
                   html += \`<div class="mb-6"><h4 class="text-xl font-bold mb-3 text-red-800">\${category}</h4><ul class="space-y-2">\`;
                   grouped[category].forEach(std => {
-                    html += \`<li class="flex items-start"><i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i><div><strong>\${std.standard_name}</strong><p class="text-sm text-gray-600">\${std.description}</p></div></li>\`;
+                    html += \`<li class="flex items-start"><i class="fas fa-check-circle text-gray-600 mt-1 mr-3"></i><div><strong>\${std.standard_name}</strong><p class="text-sm text-gray-600">\${std.description}</p></div></li>\`;
                   });
                   html += '</ul></div>';
                 });
@@ -3739,7 +3739,7 @@ app.get('/centers', (c) => {
                             <i class="fas fa-calendar mr-2"></i>Accredited: \${new Date(center.accreditation_date).toLocaleDateString()}
                           </p>
                           <div class="flex items-center">
-                            <span class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
+                            <span class="bg-gray-100 text-gray-800 text-xs font-semibold px-3 py-1 rounded-full">
                               <i class="fas fa-check-circle mr-1"></i>Active
                             </span>
                           </div>
@@ -3883,9 +3883,9 @@ app.get('/contact', (c) => {
                         <i class="fas fa-info-circle mr-2"></i>Before You Contact Us
                     </h3>
                     <ul class="space-y-2 text-gray-700">
-                        <li><i class="fas fa-check text-green-600 mr-2"></i>For certificate verification, please use our <a href="/verify" class="text-red-800 font-semibold hover:underline">online verification system</a></li>
-                        <li><i class="fas fa-check text-green-600 mr-2"></i>Review our <a href="/services" class="text-red-800 font-semibold hover:underline">services page</a> for accreditation options</li>
-                        <li><i class="fas fa-check text-green-600 mr-2"></i>Check our <a href="/standards" class="text-red-800 font-semibold hover:underline">standards page</a> for accreditation criteria</li>
+                        <li><i class="fas fa-check text-gray-600 mr-2"></i>For certificate verification, please use our <a href="/verify" class="text-red-800 font-semibold hover:underline">online verification system</a></li>
+                        <li><i class="fas fa-check text-gray-600 mr-2"></i>Review our <a href="/services" class="text-red-800 font-semibold hover:underline">services page</a> for accreditation options</li>
+                        <li><i class="fas fa-check text-gray-600 mr-2"></i>Check our <a href="/standards" class="text-red-800 font-semibold hover:underline">standards page</a> for accreditation criteria</li>
                     </ul>
                 </div>
             </div>
@@ -3928,8 +3928,8 @@ app.get('/contact', (c) => {
               const response = await axios.post('/api/contact', data);
               
               if (response.data.success) {
-                messageDiv.className = 'mt-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg';
-                messageDiv.innerHTML = '<p class="text-green-800"><i class="fas fa-check-circle mr-2"></i>' + response.data.message + '</p>' + (response.data.note ? '<p class="text-gray-600 text-sm mt-2"><i class="fas fa-info-circle mr-1"></i>' + response.data.note + '</p>' : '');
+                messageDiv.className = 'mt-4 p-4 bg-gray-50 border-l-4 border-gray-500 rounded-lg';
+                messageDiv.innerHTML = '<p class="text-gray-800"><i class="fas fa-check-circle mr-2"></i>' + response.data.message + '</p>' + (response.data.note ? '<p class="text-gray-600 text-sm mt-2"><i class="fas fa-info-circle mr-1"></i>' + response.data.note + '</p>' : '');
                 form.reset();
               }
             } catch (error) {
